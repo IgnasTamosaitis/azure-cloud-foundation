@@ -18,6 +18,7 @@ Requires an Azure subscription, Azure CLI, and Terraform. Commands below use Pow
 
 ```powershell
 az login
+az account set --subscription "<subscription-id>"
 $env:ARM_SUBSCRIPTION_ID = az account show --query id -o tsv
 
 terraform init

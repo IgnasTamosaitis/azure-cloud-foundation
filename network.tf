@@ -1,5 +1,5 @@
 resource "azurerm_virtual_network" "main" {
-  name                = "vnet-cloud-foundation-dev"
+  name                = "vnet-cloud-foundation-${var.environment}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   address_space       = var.vnet_address_space
