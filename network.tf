@@ -7,6 +7,7 @@ resource "azurerm_virtual_network" "main" {
   tags = {
     environment = var.environment
     project     = "cloud-foundation"
+    managed_by  = "terraform"
   }
 
 }
