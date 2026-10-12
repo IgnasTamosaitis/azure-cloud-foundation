@@ -1,8 +1,8 @@
 resource "azurerm_resource_group" "main" {
   name     = "rg-cloud-foundation-dev"
-  location = "North Europe"
+  location = var.location
   tags = {
-    environment = "dev"
+    environment = var.environment
     project     = "cloud-foundation"
   }
 }
