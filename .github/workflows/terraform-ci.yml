@@ -30,6 +30,16 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+      - name: Trivy IaC Security Scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '0'
+
+
   plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
