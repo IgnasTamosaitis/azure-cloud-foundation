@@ -1,3 +1,4 @@
+
 resource "azurerm_virtual_network" "main" {
   name                = "vnet-cloud-foundation-${var.environment}"
   location            = azurerm_resource_group.main.location
@@ -9,15 +10,15 @@ resource "azurerm_virtual_network" "main" {
     project     = "cloud-foundation"
     managed_by  = "terraform"
   }
-
 }
+
 resource "azurerm_subnet" "app" {
   name                 = "snet-app"
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = var.app_subnet_prefixes
-
 }
+
 resource "azurerm_subnet" "data" {
   name                 = "snet-data"
   resource_group_name  = azurerm_resource_group.main.name

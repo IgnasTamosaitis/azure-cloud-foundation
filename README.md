@@ -1,8 +1,9 @@
+
 # Azure Cloud Foundation
 
 A hands-on Infrastructure as Code (IaC) project for provisioning and managing Azure networking infrastructure using Terraform and GitHub Actions.
 
-The project demonstrates remote Terraform state management, CI/CD automation, passwordless Azure authentication, least-privilege access, infrastructure security scanning, and controlled deployments.
+The project demonstrates remote Terraform state management, CI/CD automation, passwordless Azure authentication, role-based access control, infrastructure security scanning, and controlled deployments.
 
 ## Architecture
 
@@ -45,6 +46,8 @@ The backend provides:
 
 The backend storage account is provisioned separately and must exist before running `terraform init`.
 
+**Note:** The backend configuration references an existing Azure Storage Account. To reproduce this project in another subscription, provision your own state storage and update `backend.tf` accordingly.
+
 ## CI/CD Pipelines
 
 ### Terraform CI
@@ -72,10 +75,10 @@ The deployment workflow:
 5. Waits for approval through the GitHub `dev` environment.
 6. Authenticates using a separate deployment Service Principal.
 7. Downloads the previously generated plan and verifies its SHA-256 checksum.
-8. Applies the approved execution plan.
+8. Applies the saved execution plan.
 9. Attempts to delete the stored plan after execution.
 
-This separates infrastructure planning from deployment permissions and prevents the Apply job from silently generating a different execution plan.
+This separates infrastructure planning from deployment permissions and prevents the Apply job from generating a different execution plan.
 
 ## Identity and Access Management
 
@@ -83,16 +86,53 @@ Two separate Microsoft Entra ID Service Principals are used:
 
 | Identity        | Azure RBAC Permissions                                                                         | Purpose                                                               |
 | --------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Plan identity   | Reader on infrastructure Resource Group; Storage Blob Data Contributor on state container      | Read infrastructure, manage Terraform state and store execution plans |
+| Plan identity   | Reader on infrastructure Resource Group; Storage Blob Data Contributor on state container      | Read infrastructure, access Terraform state and store execution plans |
 | Deploy identity | Contributor on infrastructure Resource Group; Storage Blob Data Contributor on state container | Apply approved infrastructure changes                                 |
 
 Both identities authenticate through GitHub Actions OIDC federation without storing long-lived Azure client secrets.
 
+The planning identity cannot modify Azure infrastructure resources. However, its Storage Blob Data Contributor role permits changes to the Terraform state container.
+
 **Known limitation:** The deployment identity cannot recreate the infrastructure Resource Group after deletion because its Contributor role is scoped to the existing Resource Group.
+
+## GitHub Actions Configuration
+
+The workflows require Azure identity configuration and GitHub repository variables.
+
+### Repository Variables
+
+Configure the following under **Settings → Secrets and variables → Actions → Variables**:
+
+| Variable                   | Description                                        |
+| -------------------------- | -------------------------------------------------- |
+| `AZURE_CLIENT_ID`        | Application (client) ID of the planning identity   |
+| `AZURE_DEPLOY_CLIENT_ID` | Application (client) ID of the deployment identity |
+| `AZURE_TENANT_ID`        | Microsoft Entra tenant ID                          |
+| `AZURE_SUBSCRIPTION_ID`  | Target Azure subscription ID                       |
+
+### OIDC Federation
+
+Configure federated identity credentials in Microsoft Entra ID for both Service Principals.
+
+- The planning identity must trust the appropriate GitHub Actions branch context.
+- The deployment identity must trust the GitHub `dev` environment context.
+- Federated identity subjects must match the claims issued by GitHub Actions.
+- Azure RBAC permissions must be configured separately.
+
+No Azure client secrets are required.
+
+### Deployment Approval
+
+Create a GitHub Environment named `dev` and configure:
+
+- Required reviewer approval
+- Deployment branch restriction to `master`
+
+The deployment workflow uses this environment to require approval before Terraform Apply.
 
 ## Running Locally
 
-**Prerequisites:**
+### Prerequisites
 
 - Azure subscription
 - Terraform CLI
@@ -101,17 +141,28 @@ Both identities authenticate through GitHub Actions OIDC federation without stor
 
 Authenticate to Azure using PowerShell:
 
-    az login
-    az account set --subscription "<subscription-id></subscription>"
-    $env:ARM_SUBSCRIPTION_ID = az account show --query id -o tsv
-    $env:ARM_USE_CLI = "true"
+```powershell
+az login
+az account set --subscription "YOUR_SUBSCRIPTION_ID"
+
+$env:ARM_SUBSCRIPTION_ID = az account show --query id -o tsv
+$env:ARM_USE_CLI = "true"
+```
 
 Initialize and validate Terraform:
 
-    terraform init
-    terraform fmt -check -recursive
-    terraform validate
-    terraform plan
+```powershell
+terraform init
+terraform fmt -check -recursive
+terraform validate
+terraform plan
+```
+
+Check infrastructure outputs:
+
+```powershell
+terraform output
+```
 
 For controlled deployments, use the **Terraform Deploy** GitHub Actions workflow rather than applying changes locally.
 
@@ -139,6 +190,8 @@ Potential improvements include:
 - More granular permissions for Terraform state and plan storage
 - Additional Azure networking and security controls
 - Automated testing of infrastructure changes
+
+Terraform plan blobs may remain in storage if deployments are cancelled before cleanup. Blob versioning and soft delete can also retain deleted plan data temporarily.
 
 No virtual machines, containers, or application workloads are deployed.
 

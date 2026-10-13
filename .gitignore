@@ -1,9 +1,11 @@
+
 # Terraform working directory
 .terraform/
 
 # Terraform state
 *.tfstate
 *.tfstate.*
+.terraform.tfstate.lock.info
 
 # Terraform variables containing secrets
 *.tfvars
@@ -21,6 +23,8 @@ crash.*.log
 
 # Terraform plan files
 *.tfplan
+*.tfplan.*
+/tfplan
 
 # Terraform overrides
 override.tf
