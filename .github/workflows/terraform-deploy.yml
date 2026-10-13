@@ -46,7 +46,7 @@ jobs:
   plan:
     name: Plan
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     outputs:
       plan_hash: ${{ steps.checksum.outputs.sha256 }}
@@ -99,7 +99,7 @@ jobs:
   apply:
     name: Apply
     needs: plan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: dev
 
     permissions:
