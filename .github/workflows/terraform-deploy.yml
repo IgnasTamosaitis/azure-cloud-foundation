@@ -1,4 +1,3 @@
-
 name: Terraform Deploy
 
 on:
@@ -35,10 +34,22 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+      - name: Trivy IaC Security Scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
+
   plan:
     name: Plan
     needs: validate
     runs-on: ubuntu-latest
+
+    outputs:
+      plan_hash: ${{ steps.checksum.outputs.sha256 }}
 
     permissions:
       contents: read
@@ -68,7 +79,22 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan -input=false -lock-timeout=5m
+        run: terraform plan -input=false -lock-timeout=5m -out=tfplan
+
+      - name: Calculate plan checksum
+        id: checksum
+        run: echo "sha256=$(sha256sum tfplan | cut -d ' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Store plan in Azure Blob
+        run: |
+          az storage blob upload \
+            --account-name sttfignas936686 \
+            --container-name tfstate \
+            --name "plans/${{ github.run_id }}-${{ github.run_attempt }}.tfplan" \
+            --file tfplan \
+            --auth-mode login \
+            --overwrite true \
+            --only-show-errors
 
   apply:
     name: Apply
@@ -103,8 +129,31 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      - name: Terraform Plan
-        run: terraform plan -input=false -lock-timeout=5m -out=tfplan
+      - name: Download approved plan
+        run: |
+          az storage blob download \
+            --account-name sttfignas936686 \
+            --container-name tfstate \
+            --name "plans/${{ github.run_id }}-${{ github.run_attempt }}.tfplan" \
+            --file tfplan \
+            --auth-mode login \
+            --only-show-errors
+
+      - name: Verify plan integrity
+        env:
+          EXPECTED_SHA256: ${{ needs.plan.outputs.plan_hash }}
+        run: echo "$EXPECTED_SHA256  tfplan" | sha256sum -c -
 
       - name: Terraform Apply
         run: terraform apply -input=false -lock-timeout=5m tfplan
+
+      - name: Clean up stored plan
+        if: always()
+        continue-on-error: true
+        run: |
+          az storage blob delete \
+            --account-name sttfignas936686 \
+            --container-name tfstate \
+            --name "plans/${{ github.run_id }}-${{ github.run_attempt }}.tfplan" \
+            --auth-mode login \
+            --only-show-errors
