@@ -60,7 +60,9 @@ The pipeline performs:
 2. Terraform formatting validation
 3. Terraform configuration validation
 4. Trivy IaC security scanning (HIGH and CRITICAL findings fail validation)
-5. Terraform Plan on pushes to `master`
+5. Terraform Plan on pushes to `master`, when the repository variable `TF_PLAN_ENABLED` is set to `true`
+
+The infrastructure is currently torn down to avoid costs, so the Plan job is skipped; formatting, validation and the Trivy scan still run on every push and pull request. Third-party actions are pinned to commit SHAs, and Dependabot proposes Terraform provider and GitHub Actions updates weekly after a 14-day cooldown.
 
 ### Terraform Deploy
 
@@ -109,6 +111,7 @@ Configure the following under **Settings → Secrets and variables → Actions �
 | `AZURE_DEPLOY_CLIENT_ID` | Application (client) ID of the deployment identity |
 | `AZURE_TENANT_ID`        | Microsoft Entra tenant ID                          |
 | `AZURE_SUBSCRIPTION_ID`  | Target Azure subscription ID                       |
+| `TF_PLAN_ENABLED`        | Set to `true` to run Terraform Plan on pushes to `master` |
 
 ### OIDC Federation
 
