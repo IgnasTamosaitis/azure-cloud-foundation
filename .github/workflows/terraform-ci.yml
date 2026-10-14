@@ -1,4 +1,3 @@
-
 name: Terraform CI
 
 on:
@@ -6,6 +5,9 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+
+permissions:
+  contents: read
 
 jobs:
   validate:
@@ -31,7 +33,7 @@ jobs:
         run: terraform validate
 
       - name: Trivy IaC Security Scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: 'config'
           scan-ref: '.'
@@ -44,7 +46,10 @@ jobs:
     name: Terraform Plan
     runs-on: ubuntu-24.04
     needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    # Opt-in: only plan when the Azure infrastructure exists (repository variable TF_PLAN_ENABLED=true)
+    if: >-
+      vars.TF_PLAN_ENABLED == 'true' &&
+      github.event_name == 'push' && github.ref == 'refs/heads/master'
 
     permissions:
       id-token: write
